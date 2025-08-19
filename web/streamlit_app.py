@@ -2,6 +2,7 @@ import json, os, time
 import pandas as pd
 import streamlit as st
 import pydeck as pdk
+from datetime import datetime, timedelta
 
 st.set_page_config(page_title="Attack Map (GeoLite2)", layout="wide")
 st.title("🌍 Attack Map (GeoLite2 only)")
@@ -27,6 +28,11 @@ def load_events():
     dst_lon = 126.9780
     df["dst_lat"] = dst_lat
     df["dst_lon"] = dst_lon
+
+    # 최근 30초 이내 이벤트만 필터링
+    now = datetime.utcnow()
+    df["ts"] = pd.to_datetime(df["ts"], errors="coerce")
+    df = df[df["ts"] > now - timedelta(seconds=30)]
 
     return df
 
@@ -74,7 +80,7 @@ with right:
     if not df.empty:
         st.dataframe(df.sort_values("ts", ascending=False), height=500)
     else:
-        st.info("events.json에 데이터가 없어요. 먼저 IP → 좌표 변환 스크립트를 실행해 주세요.")
+        st.info("최근 30초 이내의 이벤트가 없습니다. 잠시 후 다시 확인해 주세요.")
 
 st.divider()
 st.caption("This product includes GeoLite2 Data created by MaxMind.")
