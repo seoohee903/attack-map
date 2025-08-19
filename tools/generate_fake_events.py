@@ -19,22 +19,32 @@ buf = []
 
 print("[generator] writing to:", OUT)
 while True:
-    c = random.choice(list(SPOTS))
-    lat, lon = random.choice(SPOTS[c])
+    src_country = random.choice(list(SPOTS))
+    dst_country = random.choice(list(SPOTS))
+
+    src_lat, src_lon = random.choice(SPOTS[src_country])
+    dst_lat, dst_lon = random.choice(SPOTS[dst_country])
+
     item = {
         "id": str(uuid.uuid4()),
-        "ts": dt.datetime.utcnow().replace(microsecond=0).isoformat()+"Z",
+        "ts": dt.datetime.utcnow().replace(microsecond=0).isoformat() + "Z",
         "src_ip": f"198.51.100.{random.randint(1,254)}",
-        "lat": lat,
-        "lon": lon,
-        "country": c,
+        "dst_ip": f"192.0.2.{random.randint(1,254)}",
+        "src_country": src_country,
+        "dst_country": dst_country,
+        "src_lat": src_lat,
+        "src_lon": src_lon,
+        "dst_lat": dst_lat,
+        "dst_lon": dst_lon,
         "port": random.choice(PORTS),
         "proto": "tcp",
         "label": random.choice(LABELS),
-        "severity": random.choice([1,2,2,3,3,4])
+        "severity": random.choice([1, 2, 2, 3, 3, 4])
     }
+
     buf.append(item)
     if len(buf) > RING_LIMIT:
         buf = buf[-RING_LIMIT:]
-    OUT.write_text(json.dumps(buf), encoding="utf-8")
+
+    OUT.write_text(json.dumps(buf, indent=2), encoding="utf-8")
     time.sleep(0.7)
