@@ -11,13 +11,16 @@ EVENTS_PATH = os.path.join("web", "events.json")
 @st.cache_data(ttl=5)
 def load_events():
     if not os.path.exists(EVENTS_PATH):
-        return pd.DataFrame(columns=["lat","lon","ip","port","ts","country","city","label"])
+        return pd.DataFrame(columns=["lat", "lon", "src_ip", "port", "ts", "country", "label", "severity"])
     with open(EVENTS_PATH, "r", encoding="utf-8") as f:
         data = json.load(f)
     df = pd.DataFrame(data)
-    for col in ["lat","lon"]:
-        if col not in df.columns: df[col] = None
-    df = df.dropna(subset=["lat","lon"])
+
+    # 결측 처리
+    for col in ["lat", "lon"]:
+        if col not in df.columns:
+            df[col] = None
+    df = df.dropna(subset=["lat", "lon"])
 
     # 목적지 좌표 임의 추가 (서울 허니팟)
     dst_lat = 37.5665
@@ -29,7 +32,20 @@ def load_events():
 
 df = load_events()
 
-left, right = st.columns([2,1])
+# 색상 매핑: 공격 유형별 RGB
+LABEL_COLORS = {
+    "bruteforce": [255, 0, 0],
+    "malware-drop": [0, 255, 0],
+    "scanner": [0, 0, 255],
+    "miner": [255, 255, 0],
+    "worm": [255, 0, 255]
+}
+
+# 색상과 굵기 컬럼 생성
+df["color"] = df["label"].map(LABEL_COLORS).fillna([128, 128, 128])
+df["width"] = df["severity"].clip(1, 10)
+
+left, right = st.columns([2, 1])
 with left:
     # ArcLayer로 공격 흐름 시각화
     layer = pdk.Layer(
@@ -37,13 +53,20 @@ with left:
         df,
         get_source_position=["lon", "lat"],
         get_target_position=["dst_lon", "dst_lat"],
-        get_source_color=[255, 0, 0],
-        get_target_color=[0, 0, 255],
-        get_width=5,
-        pickable=True
+        get_source_color="color",
+        get_target_color="color",
+        get_width="width",
+        pickable=True,
+        auto_highlight=True
     )
+
+    tooltip = {
+        "html": "<b>IP:</b> {src_ip}<br><b>Label:</b> {label}<br><b>Severity:</b> {severity}",
+        "style": {"backgroundColor": "white", "color": "black"}
+    }
+
     view_state = pdk.ViewState(latitude=37.5665, longitude=126.9780, zoom=1.5)
-    st.pydeck_chart(pdk.Deck(layers=[layer], initial_view_state=view_state))
+    st.pydeck_chart(pdk.Deck(layers=[layer], initial_view_state=view_state, tooltip=tooltip))
 
 with right:
     st.subheader("Recent Events")
@@ -51,10 +74,6 @@ with right:
     if not df.empty:
         st.dataframe(df.sort_values("ts", ascending=False), height=500)
     else:
-        st.info("events.json에 데이터가 없어요. 먼저 IP → 좌표 변환 스크립트를 실행해 주세요.")
-
-st.divider()
-st.caption("This product includes GeoLite2 Data created by MaxMind.")
         st.info("events.json에 데이터가 없어요. 먼저 IP → 좌표 변환 스크립트를 실행해 주세요.")
 
 st.divider()
